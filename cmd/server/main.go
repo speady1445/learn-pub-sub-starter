@@ -7,6 +7,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/speady1445/learn-pub-sub-starter/internal/pubsub"
+	"github.com/speady1445/learn-pub-sub-starter/internal/routing"
+
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -18,6 +21,22 @@ func main() {
 		log.Fatalf("Could not connect to RabbitMQ: %v", err)
 	}
 	defer connection.Close()
+
+	channel, err := connection.Channel()
+	if err != nil {
+		log.Fatalf("Could not open channel: %v", err)
+	}
+
+	err = pubsub.PublishJSON(
+		channel,
+		routing.ExchangePerilDirect,
+		routing.PauseKey,
+		routing.PlayingState{IsPaused: true},
+	)
+	if err != nil {
+		log.Fatalf("Could not publish message: %v", err)
+	}
+
 	fmt.Println("Successfully connected to RabbitMQ!")
 	wait_for_user_interupt()
 }

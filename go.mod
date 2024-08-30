@@ -1,4 +1,4 @@
-module github.com/bootdotdev/learn-pub-sub-starter
+module github.com/speady1445/learn-pub-sub-starter
 
 go 1.22.1
 
