@@ -102,7 +102,6 @@ func main() {
 				continue
 			}
 
-			log.Println("Successfully published move")
 		case "status":
 			game_state.CommandStatus()
 		case "help":
@@ -146,9 +145,9 @@ func handlerArmyMoves(game_state *gamelogic.GameState, channel *amqp.Channel) fu
 			)
 			if err != nil {
 				log.Printf("could not publish message: %v", err)
-				return pubsub.NackDiscard
+				return pubsub.NackRequeue
 			}
-			return pubsub.NackRequeue // to test the requeue (endless loop)
+			return pubsub.Ack
 		case gamelogic.MoveOutcomeSamePlayer:
 			return pubsub.NackDiscard
 		default:
