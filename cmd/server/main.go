@@ -26,6 +26,17 @@ func main() {
 		log.Fatalf("could not open channel: %v", err)
 	}
 
+	_, _, err = pubsub.DeclareAndBind(
+		connection,
+		routing.ExchangePerilTopic,
+		routing.GameLogSlug,
+		routing.GameLogSlug+".*",
+		pubsub.SimpleQueueDurable,
+	)
+	if err != nil {
+		log.Fatalf("could not subscribe to game logs: %v", err)
+	}
+
 	gamelogic.PrintServerHelp()
 
 	for {
