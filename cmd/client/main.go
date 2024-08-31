@@ -27,18 +27,19 @@ func main() {
 		log.Fatalf("could not get username: %v", err)
 	}
 
-	_, _, err = pubsub.DeclareAndBind(
+	game_state := gamelogic.NewGameState(username)
+
+	err = pubsub.SubscribeJSON(
 		connection,
 		routing.ExchangePerilDirect,
-		fmt.Sprintf("%s.%s", routing.PauseKey, username),
+		routing.PauseKey+"."+game_state.GetUsername(),
 		routing.PauseKey,
 		pubsub.SimpleQueueTransient,
+		handlerPause(game_state),
 	)
 	if err != nil {
 		log.Fatalf("could not subscribe to pause: %v", err)
 	}
-
-	game_state := gamelogic.NewGameState(username)
 
 	gamelogic.PrintClientHelp()
 
@@ -71,5 +72,12 @@ func main() {
 		default:
 			fmt.Println("Me not speak you tongue!? - try using the 'help' command")
 		}
+	}
+}
+
+func handlerPause(game_state *gamelogic.GameState) func(routing.PlayingState) {
+	return func(playing_state routing.PlayingState) {
+		defer fmt.Print("> ")
+		game_state.HandlePause(playing_state)
 	}
 }
