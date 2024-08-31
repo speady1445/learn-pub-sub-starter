@@ -106,16 +106,27 @@ func main() {
 	}
 }
 
-func handlerPause(game_state *gamelogic.GameState) func(routing.PlayingState) {
-	return func(playing_state routing.PlayingState) {
+func handlerPause(game_state *gamelogic.GameState) func(routing.PlayingState) pubsub.AckType {
+	return func(playing_state routing.PlayingState) pubsub.AckType {
 		defer fmt.Print("> ")
 		game_state.HandlePause(playing_state)
+		return pubsub.Ack
 	}
 }
 
-func handlerArmyMoves(game_state *gamelogic.GameState) func(gamelogic.ArmyMove) {
-	return func(army_move gamelogic.ArmyMove) {
+func handlerArmyMoves(game_state *gamelogic.GameState) func(gamelogic.ArmyMove) pubsub.AckType {
+	return func(army_move gamelogic.ArmyMove) pubsub.AckType {
 		defer fmt.Print("> ")
-		game_state.HandleMove(army_move)
+		outcome := game_state.HandleMove(army_move)
+
+		switch outcome {
+		case gamelogic.MoveOutComeSafe, gamelogic.MoveOutcomeMakeWar:
+			return pubsub.Ack
+		case gamelogic.MoveOutcomeSamePlayer:
+			return pubsub.NackDiscard
+		default:
+			fmt.Println("error: unknown move outcome")
+			return pubsub.NackDiscard
+		}
 	}
 }
