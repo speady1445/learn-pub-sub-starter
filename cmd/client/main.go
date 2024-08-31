@@ -3,9 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/speady1445/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/speady1445/learn-pub-sub-starter/internal/pubsub"
@@ -41,13 +38,38 @@ func main() {
 		log.Fatalf("could not subscribe to pause: %v", err)
 	}
 
-	wait_for_user_interupt()
-}
+	game_state := gamelogic.NewGameState(username)
 
-func wait_for_user_interupt() {
-	fmt.Println("Press CTRL+C to exit...")
-	done := make(chan os.Signal, 1)
-	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
-	<-done // Will block here until user hits ctrl+c
-	fmt.Println("Exiting now...")
+	gamelogic.PrintClientHelp()
+
+	for {
+		words := gamelogic.GetInput()
+		if len(words) == 0 {
+			continue
+		}
+
+		switch words[0] {
+		case "spawn":
+			err := game_state.CommandSpawn(words)
+			if err != nil {
+				fmt.Println(err)
+			}
+		case "move":
+			_, err := game_state.CommandMove(words)
+			if err != nil {
+				fmt.Println(err)
+			}
+		case "status":
+			game_state.CommandStatus()
+		case "help":
+			gamelogic.PrintClientHelp()
+		case "spam":
+			fmt.Println("Spamming not allowed yet!")
+		case "quit":
+			gamelogic.PrintQuit()
+			return
+		default:
+			fmt.Println("Me not speak you tongue!? - try using the 'help' command")
+		}
+	}
 }
