@@ -1,6 +1,8 @@
 package pubsub
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -68,6 +70,64 @@ func SubscribeJSON[T any](
 	simpleQueueType SimpleQueueType,
 	handler func(T) AckType,
 ) error {
+	JSONunmarshaller := func(data []byte) (T, error) {
+		var msg T
+		err := json.Unmarshal(data, &msg)
+		if err != nil {
+			return msg, fmt.Errorf("could not unmarshal JSON message: %v", err)
+		}
+		return msg, nil
+	}
+
+	return subscribe(
+		connection,
+		exchange,
+		queueName,
+		key,
+		simpleQueueType,
+		handler,
+		JSONunmarshaller,
+	)
+}
+
+func SubscribeGob[T any](
+	connection *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	simpleQueueType SimpleQueueType,
+	handler func(T) AckType,
+) error {
+	GOBdecoder := func(data []byte) (T, error) {
+		var msg T
+		decoder := gob.NewDecoder(bytes.NewReader(data))
+		err := decoder.Decode(&msg)
+		if err != nil {
+			return msg, fmt.Errorf("could not decode GOB message: %v", err)
+		}
+		return msg, nil
+	}
+
+	return subscribe(
+		connection,
+		exchange,
+		queueName,
+		key,
+		simpleQueueType,
+		handler,
+		GOBdecoder,
+	)
+}
+
+func subscribe[T any](
+	connection *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	simpleQueueType SimpleQueueType,
+	handler func(T) AckType,
+	unmarshaller func([]byte) (T, error),
+) error {
 	channel, _, err := DeclareAndBind(
 		connection,
 		exchange,
@@ -95,10 +155,9 @@ func SubscribeJSON[T any](
 	go func() {
 		defer channel.Close()
 		for delivery := range consume_channel {
-			var msg T
-			err := json.Unmarshal(delivery.Body, &msg)
+			msg, err := unmarshaller(delivery.Body)
 			if err != nil {
-				log.Printf("could not unmarshal message: %v", err)
+				log.Print(err)
 				continue
 			}
 			ack := handler(msg)

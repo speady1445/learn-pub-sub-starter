@@ -26,12 +26,13 @@ func main() {
 		log.Fatalf("could not open channel: %v", err)
 	}
 
-	_, _, err = pubsub.DeclareAndBind(
+	err = pubsub.SubscribeGob(
 		connection,
 		routing.ExchangePerilTopic,
 		routing.GameLogSlug,
 		routing.GameLogSlug+".*",
 		pubsub.SimpleQueueDurable,
+		handlerGameLogs(),
 	)
 	if err != nil {
 		log.Fatalf("could not subscribe to game logs: %v", err)
@@ -84,5 +85,17 @@ func unpause(channel *amqp.Channel) {
 	)
 	if err != nil {
 		log.Printf("could not publish message: %v", err)
+	}
+}
+
+func handlerGameLogs() func(routing.GameLog) pubsub.AckType {
+	return func(game_log routing.GameLog) pubsub.AckType {
+		defer fmt.Print("> ")
+		err := gamelogic.WriteLog(game_log)
+		if err != nil {
+			fmt.Printf("error writing log: %v\n", err)
+			return pubsub.NackRequeue
+		}
+		return pubsub.Ack
 	}
 }

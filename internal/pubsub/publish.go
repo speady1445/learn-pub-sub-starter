@@ -23,7 +23,7 @@ func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error {
 		false,
 		false,
 		amqp.Publishing{
-			ContentType: "applocation/json",
+			ContentType: "application/json",
 			Body:        marshaledJSON,
 		},
 	)
@@ -49,7 +49,7 @@ func PublishGob[T any](channel *amqp.Channel, exchange, key string, value T) err
 		false,
 		false,
 		amqp.Publishing{
-			ContentType: "applocation/gob",
+			ContentType: "application/gob",
 			Body:        buffer.Bytes(),
 		},
 	)
