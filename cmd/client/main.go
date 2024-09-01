@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/speady1445/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/speady1445/learn-pub-sub-starter/internal/pubsub"
@@ -64,7 +65,7 @@ func main() {
 		routing.WarRecognitionsPrefix,
 		routing.WarRecognitionsPrefix+".*",
 		pubsub.SimpleQueueDurable,
-		handleWar(game_state),
+		handleWar(game_state, channel),
 	)
 	if err != nil {
 		log.Fatalf("could not subscribe to war: %v", err)
@@ -157,25 +158,40 @@ func handlerArmyMoves(game_state *gamelogic.GameState, channel *amqp.Channel) fu
 	}
 }
 
-func handleWar(game_state *gamelogic.GameState) func(gamelogic.RecognitionOfWar) pubsub.AckType {
+func handleWar(game_state *gamelogic.GameState, channel *amqp.Channel) func(gamelogic.RecognitionOfWar) pubsub.AckType {
 	return func(recognition_of_war gamelogic.RecognitionOfWar) pubsub.AckType {
 		defer fmt.Print("> ")
-		outcome, _, _ := game_state.HandleWar(recognition_of_war)
+		outcome, winner, loser := game_state.HandleWar(recognition_of_war)
 
+		var msg string
 		switch outcome {
 		case gamelogic.WarOutcomeNotInvolved:
 			return pubsub.NackRequeue
 		case gamelogic.WarOutcomeNoUnits:
 			return pubsub.NackDiscard
-		case gamelogic.WarOutcomeOpponentWon:
-			return pubsub.Ack
-		case gamelogic.WarOutcomeYouWon:
-			return pubsub.Ack
+		case gamelogic.WarOutcomeOpponentWon, gamelogic.WarOutcomeYouWon:
+			msg = fmt.Sprintf("%s won a war against %s", winner, loser)
 		case gamelogic.WarOutcomeDraw:
-			return pubsub.Ack
+			msg = fmt.Sprintf("A war between %s and %s resulted in a draw", winner, loser)
 		default:
 			fmt.Println("error: unknown war outcome")
 			return pubsub.NackDiscard
 		}
+
+		err := pubsub.PublishGob(
+			channel,
+			routing.ExchangePerilTopic,
+			routing.GameLogSlug+"."+recognition_of_war.Attacker.Username,
+			routing.GameLog{
+				CurrentTime: time.Now(),
+				Message:     msg,
+				Username:    game_state.GetUsername(),
+			},
+		)
+		if err != nil {
+			return pubsub.NackRequeue
+		}
+
+		return pubsub.Ack
 	}
 }
